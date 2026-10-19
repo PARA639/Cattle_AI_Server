@@ -1,0 +1,29 @@
+# Firebase private credentials
+serviceAccountKey.json
+*.pem
+*.key
+.env
+.env.*
+
+# Python cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Editor files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Backups
+*_backup.py
+*_backup.js
+*_before_refresh.js

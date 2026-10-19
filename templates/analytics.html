@@ -1,0 +1,458 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="analytics-page">
+
+    <!-- PAGE HEADER -->
+    <div class="analytics-header">
+
+        <div class="analytics-heading">
+            <div class="analytics-title-row">
+                <span class="analytics-title-icon">📊</span>
+
+                <div>
+                    <h1>Sensor Analytics</h1>
+                    <p>
+                        Historical monitoring of real cattle sensor data
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <button
+            type="button"
+            class="analytics-refresh-btn"
+            id="refreshAnalyticsBtn"
+        >
+            <span>↻</span>
+            Refresh Data
+        </button>
+
+    </div>
+
+
+    <!-- FILTER BAR -->
+    <section class="analytics-filter-bar">
+
+        <div class="analytics-filter-left">
+
+            <span class="analytics-filter-label">
+                Time Range
+            </span>
+
+            <div class="analytics-range-buttons">
+
+                <button
+                    type="button"
+                    class="analytics-range-btn active"
+                    data-range="1h"
+                >
+                    1 Hour
+                </button>
+
+                <button
+                    type="button"
+                    class="analytics-range-btn"
+                    data-range="24h"
+                >
+                    24 Hours
+                </button>
+
+                <button
+                    type="button"
+                    class="analytics-range-btn"
+                    data-range="7d"
+                >
+                    7 Days
+                </button>
+
+            </div>
+
+        </div>
+
+        <button
+            type="button"
+            class="analytics-export-btn"
+            id="exportCsvBtn"
+        >
+            <span>⬇</span>
+            Export CSV
+        </button>
+
+    </section>
+
+
+    <!-- DATA STATUS -->
+    <div class="analytics-data-status">
+
+        <div class="analytics-status-left">
+
+            <span
+                class="analytics-status-dot"
+                id="analyticsStatusDot"
+            ></span>
+
+            <span id="analyticsStatusText">
+                Waiting for Firebase history...
+            </span>
+
+        </div>
+
+        <span
+            class="analytics-last-updated"
+            id="analyticsLastUpdated"
+        >
+            Last updated: --
+        </span>
+
+    </div>
+
+
+    <!-- SUMMARY CARDS -->
+    <section class="analytics-summary-grid">
+
+        <!-- TOTAL READINGS -->
+        <div class="analytics-summary-card">
+
+            <div class="analytics-card-top">
+
+                <span class="analytics-card-icon icon-blue">
+                    📋
+                </span>
+
+                <span class="analytics-card-tag">
+                    Historical
+                </span>
+
+            </div>
+
+            <p class="analytics-card-label">
+                Total Readings
+            </p>
+
+            <h2 id="totalReadings">
+                --
+            </h2>
+
+            <p class="analytics-card-description">
+                Records in selected time range
+            </p>
+
+        </div>
+
+
+        <!-- TEMPERATURE -->
+        <div class="analytics-summary-card">
+
+            <div class="analytics-card-top">
+
+                <span class="analytics-card-icon icon-red">
+                    🌡️
+                </span>
+
+                <span class="analytics-card-tag">
+                    DS18B20
+                </span>
+
+            </div>
+
+            <p class="analytics-card-label">
+                Average Temperature
+            </p>
+
+            <h2 id="avgTemperature">
+                -- °C
+            </h2>
+
+            <p class="analytics-card-description">
+                Average of valid temperature readings
+            </p>
+
+        </div>
+
+
+        <!-- MOTION -->
+        <div class="analytics-summary-card">
+
+            <div class="analytics-card-top">
+
+                <span class="analytics-card-icon icon-green">
+                    🏃
+                </span>
+
+                <span class="analytics-card-tag">
+                    MPU6050
+                </span>
+
+            </div>
+
+            <p class="analytics-card-label">
+                Average Acceleration
+            </p>
+
+            <h2 id="avgMotion">
+                -- m/s²
+            </h2>
+
+            <p class="analytics-card-description">
+                Average acceleration magnitude
+            </p>
+
+        </div>
+
+
+        <!-- SOUND -->
+        <div class="analytics-summary-card">
+
+            <div class="analytics-card-top">
+
+                <span class="analytics-card-icon icon-purple">
+                    🔊
+                </span>
+
+                <span class="analytics-card-tag">
+                    MAX9814
+                </span>
+
+            </div>
+
+            <p class="analytics-card-label">
+                Average Sound Peak
+            </p>
+
+            <h2 id="avgSound">
+                --
+            </h2>
+
+            <p class="analytics-card-description">
+                Average ADC peak-to-peak reading
+            </p>
+
+        </div>
+
+    </section>
+
+
+    <!-- GRAPH SECTION HEADER -->
+    <section class="analytics-graphs-heading">
+
+        <div>
+            <h2>Sensor Trends</h2>
+
+            <p>
+                Explore temperature, motion and sound history
+            </p>
+        </div>
+
+        <div class="analytics-zoom-controls">
+
+            <button
+                type="button"
+                id="zoomInBtn"
+                title="Zoom In"
+            >
+                ＋
+            </button>
+
+            <button
+                type="button"
+                id="zoomOutBtn"
+                title="Zoom Out"
+            >
+                －
+            </button>
+
+            <button
+                type="button"
+                id="resetZoomBtn"
+                class="analytics-reset-btn"
+            >
+                Reset Zoom
+            </button>
+
+        </div>
+
+    </section>
+
+
+    <!-- TEMPERATURE GRAPH -->
+    <section class="analytics-graph-card">
+
+        <div class="analytics-graph-header">
+
+            <div class="analytics-graph-title">
+
+                <span class="analytics-graph-icon graph-red">
+                    🌡️
+                </span>
+
+                <div>
+                    <h3>Temperature Trend</h3>
+
+                    <p>
+                        DS18B20 surface temperature readings
+                    </p>
+                </div>
+
+            </div>
+
+            <span class="analytics-graph-unit">
+                °C
+            </span>
+
+        </div>
+
+        <div class="analytics-chart-container">
+            <canvas id="temperatureChart"></canvas>
+        </div>
+
+    </section>
+
+
+    <!-- MOTION GRAPH -->
+    <section class="analytics-graph-card">
+
+        <div class="analytics-graph-header">
+
+            <div class="analytics-graph-title">
+
+                <span class="analytics-graph-icon graph-blue">
+                    📈
+                </span>
+
+                <div>
+                    <h3>Motion / Acceleration Trend</h3>
+
+                    <p>
+                        MPU6050 acceleration magnitude
+                    </p>
+                </div>
+
+            </div>
+
+            <span class="analytics-graph-unit">
+                m/s²
+            </span>
+
+        </div>
+
+        <div class="analytics-chart-container">
+            <canvas id="motionChart"></canvas>
+        </div>
+
+    </section>
+
+
+    <!-- SOUND GRAPH -->
+    <section class="analytics-graph-card">
+
+        <div class="analytics-graph-header">
+
+            <div class="analytics-graph-title">
+
+                <span class="analytics-graph-icon graph-purple">
+                    🔊
+                </span>
+
+                <div>
+                    <h3>Sound Activity Trend</h3>
+
+                    <p>
+                        MAX9814 microphone peak-to-peak readings
+                    </p>
+                </div>
+
+            </div>
+
+            <span class="analytics-graph-unit">
+                ADC
+            </span>
+
+        </div>
+
+        <div class="analytics-chart-container">
+            <canvas id="soundChart"></canvas>
+        </div>
+
+    </section>
+
+
+    <!-- TIMELINE NAVIGATOR -->
+    <section class="analytics-timeline-card">
+
+        <div class="analytics-timeline-header">
+
+            <div>
+                <h3>🎚️ Timeline Navigator</h3>
+
+                <p>
+                    Slide to explore earlier or newer sensor readings
+                </p>
+            </div>
+
+            <span class="analytics-timeline-badge">
+                Interactive
+            </span>
+
+        </div>
+
+        <div class="analytics-slider-wrapper">
+
+            <input
+                type="range"
+                id="timelineSlider"
+                min="0"
+                max="0"
+                value="0"
+                step="1"
+                disabled
+            >
+
+            <div class="analytics-timeline-labels">
+
+                <span id="timelineStart">
+                    --
+                </span>
+
+                <span
+                    id="timelineCurrent"
+                    class="analytics-timeline-current"
+                >
+                    No readings loaded
+                </span>
+
+                <span id="timelineEnd">
+                    --
+                </span>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- FOOTER NOTE -->
+    <div class="analytics-footer-note">
+
+        <span>ℹ️</span>
+
+        <p>
+            Analytics are generated from actual ESP32 readings
+            stored in Firebase Realtime Database.
+            No simulated sensor measurements are used.
+        </p>
+
+    </div>
+
+</div>
+
+
+<!-- CHART.JS -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+
+<!-- ANALYTICS JAVASCRIPT -->
+<script src="{{ url_for('static', filename='js/analytics.js') }}"></script>
+
+{% endblock %}

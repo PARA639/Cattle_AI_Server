@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+
+{% block title %}Settings | CattleAI{% endblock %}
+
+{% block page_title %}Settings{% endblock %}
+
+{% block content %}
+
+<div class="settings-page">
+
+    <div class="settings-page-heading">
+        <div>
+            <h1 data-i18n="settings.title">
+                Settings & Preferences
+            </h1>
+
+            <p data-i18n="settings.description">
+                Customize your monitoring dashboard experience
+            </p>
+        </div>
+    </div>
+
+    <div class="settings-grid">
+
+        <!-- APPEARANCE -->
+
+        <section class="settings-card">
+
+            <div class="settings-card-heading">
+                <div class="settings-card-icon">🎨</div>
+
+                <div>
+                    <h2 data-i18n="settings.appearance">
+                        Appearance
+                    </h2>
+
+                    <p data-i18n="settings.appearanceDesc">
+                        Choose how the dashboard looks
+                    </p>
+                </div>
+            </div>
+
+            <div class="settings-field">
+                <label for="settingsTheme" data-i18n="settings.theme">
+                    Dashboard Theme
+                </label>
+
+                <select id="settingsTheme">
+                    <option value="light" data-i18n="settings.light">
+                        Light
+                    </option>
+
+                    <option value="dark" data-i18n="settings.dark">
+                        Dark
+                    </option>
+
+                    <option value="system" data-i18n="settings.system">
+                        System Default
+                    </option>
+                </select>
+            </div>
+
+        </section>
+
+        <!-- LANGUAGE -->
+
+        <section class="settings-card">
+
+            <div class="settings-card-heading">
+                <div class="settings-card-icon">🌐</div>
+
+                <div>
+                    <h2 data-i18n="settings.language">
+                        Language & Region
+                    </h2>
+
+                    <p data-i18n="settings.languageDesc">
+                        Select your preferred interface language
+                    </p>
+                </div>
+            </div>
+
+            <div class="settings-field">
+                <label for="settingsLanguage"
+                       data-i18n="settings.languageLabel">
+                    Display Language
+                </label>
+
+                <select id="settingsLanguage">
+                    <option value="en">English</option>
+                    <option value="hi">हिन्दी (Hindi)</option>
+                    <option value="mr">मराठी (Marathi)</option>
+                    <option value="ta">தமிழ் (Tamil)</option>
+                    <option value="te">తెలుగు (Telugu)</option>
+                </select>
+
+                <small data-i18n="settings.languageHint">
+                    Language selection is saved automatically.
+                </small>
+            </div>
+
+        </section>
+
+        <!-- MONITORING -->
+
+        <section class="settings-card">
+
+            <div class="settings-card-heading">
+                <div class="settings-card-icon">📡</div>
+
+                <div>
+                    <h2 data-i18n="settings.monitoring">
+                        Monitoring Preferences
+                    </h2>
+
+                    <p data-i18n="settings.monitoringDesc">
+                        Control dashboard update preferences
+                    </p>
+                </div>
+            </div>
+
+            <div class="settings-field">
+                <label for="settingsRefresh"
+                       data-i18n="settings.refresh">
+                    Auto-refresh Interval
+                </label>
+
+                <select id="settingsRefresh">
+                    <option value="10">10 seconds</option>
+                    <option value="15">15 seconds</option>
+                    <option value="30">30 seconds</option>
+                    <option value="60">60 seconds</option>
+                </select>
+
+                <small data-i18n="settings.refreshHint">
+                    Controls supported dashboard polling intervals.
+                </small>
+            </div>
+
+            <div class="settings-field">
+                <label for="settingsNotifications"
+                       data-i18n="settings.notifications">
+                    Browser Notifications
+                </label>
+
+                <select id="settingsNotifications">
+                    <option value="off">Off</option>
+                    <option value="on">On</option>
+                </select>
+
+                <small data-i18n="settings.notificationsHint">
+                    Save your preference for future browser alert notifications.
+                </small>
+            </div>
+
+        </section>
+
+        <!-- CURRENT STATUS -->
+
+        <section class="settings-card">
+
+            <div class="settings-card-heading">
+                <div class="settings-card-icon">✅</div>
+
+                <div>
+                    <h2 data-i18n="settings.status">
+                        Current Preferences
+                    </h2>
+                </div>
+            </div>
+
+            <div class="settings-summary">
+
+                <div>
+                    <span data-i18n="settings.currentTheme">Theme</span>
+                    <strong id="settingsCurrentTheme">--</strong>
+                </div>
+
+                <div>
+                    <span data-i18n="settings.currentLanguage">Language</span>
+                    <strong id="settingsCurrentLanguage">--</strong>
+                </div>
+
+                <div>
+                    <span data-i18n="settings.currentRefresh">Refresh Interval</span>
+                    <strong id="settingsCurrentRefresh">--</strong>
+                </div>
+
+                <div>
+                    <span data-i18n="settings.currentNotifications">Notifications</span>
+                    <strong id="settingsCurrentNotifications">--</strong>
+                </div>
+
+            </div>
+
+        </section>
+
+    </div>
+
+    <div class="settings-actions">
+
+        <div>
+            <p data-i18n="settings.note">
+                Settings are saved in this browser.
+                Sensor measurements and AI records are not modified.
+            </p>
+
+            <p id="settingsSaveMessage" aria-live="polite"></p>
+        </div>
+
+        <div class="settings-action-buttons">
+
+            <button
+                type="button"
+                id="settingsResetBtn"
+                class="settings-reset-btn"
+                data-i18n="settings.reset"
+            >
+                Restore Defaults
+            </button>
+
+            <button
+                type="button"
+                id="settingsSaveBtn"
+                class="settings-save-btn"
+                data-i18n="settings.save"
+            >
+                Save Preferences
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script src="{{ url_for('static', filename='js/settings.js') }}"></script>
+
+{% endblock %}

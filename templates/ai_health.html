@@ -1,0 +1,545 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="ai-health-page">
+
+    <!-- PAGE HEADER -->
+    <div class="ai-health-header">
+
+        <div class="ai-health-heading">
+
+            <div class="ai-health-title-row">
+
+                <span class="ai-health-title-icon">
+                    🧠
+                </span>
+
+                <div>
+
+                    <h1>AI Health Monitoring</h1>
+
+                    <p>
+                        Intelligent sensor anomaly detection
+                        and health trend analysis
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <button
+            type="button"
+            class="ai-refresh-btn"
+            id="aiRefreshBtn"
+        >
+            ↻ Refresh Analysis
+        </button>
+
+    </div>
+
+
+    <!-- AI SYSTEM STATUS -->
+    <section class="ai-system-banner">
+
+        <div class="ai-system-banner-left">
+
+            <span class="ai-system-indicator"></span>
+
+            <div>
+
+                <h3 id="aiSystemStatus">
+                    Checking AI Engine...
+                </h3>
+
+                <p id="aiLastUpdated">
+                    Last analysis: --
+                </p>
+
+            </div>
+
+        </div>
+
+        <span class="ai-experimental-badge">
+            Experimental AI
+        </span>
+
+    </section>
+
+
+    <!-- MAIN AI SUMMARY CARDS -->
+    <section class="ai-health-summary-grid">
+
+        <!-- HEALTH STATUS -->
+        <div class="ai-health-stat-card">
+
+            <div class="ai-stat-top">
+
+                <span class="ai-stat-icon ai-icon-green">
+                    ❤️
+                </span>
+
+                <span class="ai-stat-tag">
+                    Monitoring
+                </span>
+
+            </div>
+
+            <p class="ai-stat-label">
+                Health Monitoring Status
+            </p>
+
+            <h2 id="aiHealthStatus">
+                --
+            </h2>
+
+            <p class="ai-stat-description">
+                Experimental rule-based assessment
+            </p>
+
+        </div>
+
+
+        <!-- RISK SCORE -->
+        <div class="ai-health-stat-card">
+
+            <div class="ai-stat-top">
+
+                <span class="ai-stat-icon ai-icon-orange">
+                    ⚠️
+                </span>
+
+                <span class="ai-stat-tag">
+                    Rule-Based
+                </span>
+
+            </div>
+
+            <p class="ai-stat-label">
+                Risk Score
+            </p>
+
+            <h2 id="aiRiskScore">
+                --
+            </h2>
+
+            <div class="ai-risk-progress">
+
+                <div
+                    class="ai-risk-progress-fill"
+                    id="aiRiskProgress"
+                ></div>
+
+            </div>
+
+            <p class="ai-stat-description">
+                Rule-based and anomaly indicator score
+            </p>
+
+        </div>
+
+
+        <!-- ISOLATION FOREST -->
+        <div class="ai-health-stat-card">
+
+            <div class="ai-stat-top">
+
+                <span class="ai-stat-icon ai-icon-purple">
+                    🔍
+                </span>
+
+                <span class="ai-stat-tag">
+                    Isolation Forest
+                </span>
+
+            </div>
+
+            <p class="ai-stat-label">
+                Anomaly Detection
+            </p>
+
+            <h2 id="aiAnomalyStatus">
+                --
+            </h2>
+
+            <p class="ai-stat-description">
+                Unusual sensor pattern detection
+            </p>
+
+        </div>
+
+
+        <!-- MODEL STATUS -->
+        <div class="ai-health-stat-card">
+
+            <div class="ai-stat-top">
+
+                <span class="ai-stat-icon ai-icon-blue">
+                    🤖
+                </span>
+
+                <span class="ai-stat-tag">
+                    ML Model
+                </span>
+
+            </div>
+
+            <p class="ai-stat-label">
+                Model Training Status
+            </p>
+
+            <h2 id="aiModelStatus">
+                --
+            </h2>
+
+            <p class="ai-stat-description">
+                Calibration and model readiness
+            </p>
+
+        </div>
+
+    </section>
+
+
+    <!-- DETAILED ANALYSIS -->
+    <section class="ai-health-detail-grid">
+
+        <!-- ISOLATION FOREST DETAILS -->
+        <div class="ai-health-detail-card">
+
+            <div class="ai-detail-heading">
+
+                <div>
+
+                    <h3>🧠 Isolation Forest Analysis</h3>
+
+                    <p>
+                        Machine-learning anomaly monitoring
+                    </p>
+
+                </div>
+
+                <span class="ai-detail-badge">
+                    ML
+                </span>
+
+            </div>
+
+            <div class="ai-model-detail-list">
+
+                <div class="ai-model-detail-row">
+
+                    <span>
+                        Algorithm
+                    </span>
+
+                    <strong>
+                        Isolation Forest
+                    </strong>
+
+                </div>
+
+                <div class="ai-model-detail-row">
+
+                    <span>
+                        Anomaly Score
+                    </span>
+
+                    <strong id="aiAnomalyScore">
+                        --
+                    </strong>
+
+                </div>
+
+                <div class="ai-model-detail-row">
+
+                    <span>
+                        Model Trained
+                    </span>
+
+                    <strong id="aiModelTrained">
+                        --
+                    </strong>
+
+                </div>
+
+                <div class="ai-model-detail-row">
+
+                    <span>
+                        Last AI Analysis
+                    </span>
+
+                    <strong id="aiAnalysisTime">
+                        --
+                    </strong>
+
+                </div>
+
+            </div>
+
+            <div class="ai-model-note">
+
+                <span>ℹ️</span>
+
+                <p>
+                    Isolation Forest detects unusual
+                    combinations of sensor readings.
+                    An anomaly does not confirm illness.
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <!-- RULE-BASED ALERTS -->
+        <div class="ai-health-detail-card">
+
+            <div class="ai-detail-heading">
+
+                <div>
+
+                    <h3>🚨 Rule-Based Monitoring</h3>
+
+                    <p>
+                        Alerts generated from sensor thresholds
+                    </p>
+
+                </div>
+
+                <span class="ai-detail-badge">
+                    Rules
+                </span>
+
+            </div>
+
+            <div
+                class="ai-current-alerts"
+                id="aiCurrentAlerts"
+            >
+
+                <div class="ai-empty-message">
+                    Waiting for AI monitoring results...
+                </div>
+
+            </div>
+
+            <div class="ai-model-note">
+
+                <span>⚠️</span>
+
+                <p>
+                    Current thresholds require cattle-worn
+                    sensor calibration and validation.
+                </p>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- SENSOR ANALYSIS -->
+    <section class="ai-sensor-section">
+
+        <div class="ai-section-heading">
+
+            <h2>📡 Sensor Analysis</h2>
+
+            <p>
+                Latest available measurements
+                used for monitoring
+            </p>
+
+        </div>
+
+        <div class="ai-sensor-grid">
+
+            <!-- TEMPERATURE -->
+            <div class="ai-sensor-card">
+
+                <div class="ai-sensor-card-top">
+
+                    <span class="ai-sensor-icon ai-icon-red">
+                        🌡️
+                    </span>
+
+                    <span>
+                        DS18B20
+                    </span>
+
+                </div>
+
+                <p>
+                    Surface Temperature
+                </p>
+
+                <h3 id="aiSensorTemperature">
+                    -- °C
+                </h3>
+
+                <small id="aiTemperatureStatus">
+                    Waiting for sensor data
+                </small>
+
+            </div>
+
+
+            <!-- MOTION -->
+            <div class="ai-sensor-card">
+
+                <div class="ai-sensor-card-top">
+
+                    <span class="ai-sensor-icon ai-icon-blue">
+                        📈
+                    </span>
+
+                    <span>
+                        MPU6050
+                    </span>
+
+                </div>
+
+                <p>
+                    Acceleration Magnitude
+                </p>
+
+                <h3 id="aiSensorMotion">
+                    -- m/s²
+                </h3>
+
+                <small id="aiMotionStatus">
+                    Waiting for sensor data
+                </small>
+
+            </div>
+
+
+            <!-- SOUND -->
+            <div class="ai-sensor-card">
+
+                <div class="ai-sensor-card-top">
+
+                    <span class="ai-sensor-icon ai-icon-purple">
+                        🔊
+                    </span>
+
+                    <span>
+                        MAX9814
+                    </span>
+
+                </div>
+
+                <p>
+                    Sound Peak
+                </p>
+
+                <h3 id="aiSensorSound">
+                    --
+                </h3>
+
+                <small id="aiSoundStatus">
+                    Waiting for sensor data
+                </small>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- ANOMALY HISTORY -->
+    <section class="ai-history-card">
+
+        <div class="ai-history-heading">
+
+            <div>
+
+                <h3>📈 AI Anomaly History</h3>
+
+                <p>
+                    Historical Isolation Forest anomaly scores
+                </p>
+
+            </div>
+
+            <span class="ai-history-label">
+                Historical AI Results
+            </span>
+
+        </div>
+
+        <div class="ai-history-chart-container">
+
+            <canvas id="aiAnomalyHistoryChart"></canvas>
+
+        </div>
+
+        <p
+            class="ai-history-message"
+            id="aiHistoryMessage"
+        >
+            Historical AI results will appear
+            when validated analysis records are available.
+        </p>
+
+    </section>
+
+
+    <!-- AI HEALTH SUMMARY -->
+    <section class="ai-health-report-card">
+
+        <div class="ai-report-heading">
+
+            <h3>📋 AI Health Summary</h3>
+
+            <span>
+                Monitoring Report
+            </span>
+
+        </div>
+
+        <div
+            class="ai-report-content"
+            id="aiHealthReport"
+        >
+
+            <p>
+                Waiting for available AI analysis results.
+            </p>
+
+        </div>
+
+    </section>
+
+
+    <!-- DISCLAIMER -->
+    <div class="ai-health-disclaimer">
+
+        <span>ℹ️</span>
+
+        <p>
+            This dashboard provides experimental
+            sensor-based monitoring and anomaly detection.
+            It is not a veterinary diagnosis system.
+            Health concerns should be evaluated
+            by a qualified veterinarian.
+        </p>
+
+    </div>
+
+</div>
+
+
+<!-- CHART.JS -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+
+<!-- AI HEALTH JAVASCRIPT -->
+<script src="{{ url_for('static', filename='js/ai_health.js') }}"></script>
+
+
+{% endblock %}

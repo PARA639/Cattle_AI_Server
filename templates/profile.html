@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="profile-page">
+
+    <div class="profile-page-header">
+        <div>
+            <h1>🐄 Cattle Profile</h1>
+            <p>Manage cattle information and identification details</p>
+        </div>
+
+        <span class="profile-header-badge">
+            Firebase Connected
+        </span>
+    </div>
+
+    <div class="profile-layout">
+
+        <!-- PROFILE PHOTO CARD -->
+
+        <section class="profile-card profile-photo-card">
+
+            <div class="profile-photo-preview">
+
+                <img
+                    id="profilePhotoPreview"
+                    alt="Cattle photograph"
+                    style="display:none;"
+                >
+
+                <div id="profilePhotoPlaceholder">
+                    🐄
+                </div>
+
+            </div>
+
+            <h2 id="profileDisplayName">
+                Cattle Profile
+            </h2>
+
+            <p id="profileDisplayBreed">
+                Breed not specified
+            </p>
+
+            <div class="profile-cow-id">
+                Cow ID:
+                <strong id="profileDisplayID">
+                    cow_001
+                </strong>
+            </div>
+
+            <label
+                for="profilePhotoInput"
+                class="profile-upload-btn"
+            >
+                📷 Upload Cattle Photo
+            </label>
+
+            <input
+                type="file"
+                id="profilePhotoInput"
+                accept="image/jpeg,image/png,image/webp"
+                hidden
+            >
+
+            <p class="profile-photo-hint">
+                Upload an actual photograph of your cattle.
+                JPG, PNG or WebP.
+            </p>
+
+        </section>
+
+        <!-- EDITABLE DETAILS CARD -->
+
+        <section class="profile-card profile-details-card">
+
+            <div class="profile-section-heading">
+                <div>
+                    <h2>Cattle Information</h2>
+                    <p>Update and save details to Firebase</p>
+                </div>
+
+                <span id="profileSaveStatus"></span>
+            </div>
+
+            <form id="profileForm">
+
+                <div class="profile-form-grid">
+
+                    <div class="profile-form-group">
+                        <label for="profileCowID">
+                            Cow ID
+                        </label>
+
+                        <input
+                            type="text"
+                            id="profileCowID"
+                            value="cow_001"
+                            readonly
+                        >
+                    </div>
+
+                    <div class="profile-form-group">
+                        <label for="profileName">
+                            Cattle Name *
+                        </label>
+
+                        <input
+                            type="text"
+                            id="profileName"
+                            maxlength="80"
+                            placeholder="Enter cattle name"
+                            required
+                        >
+                    </div>
+
+                    <div class="profile-form-group">
+                        <label for="profileBreed">
+                            Breed
+                        </label>
+
+                        <input
+                            type="text"
+                            id="profileBreed"
+                            maxlength="100"
+                            placeholder="Enter breed"
+                        >
+                    </div>
+
+                    <div class="profile-form-group">
+                        <label for="profileAge">
+                            Age (Years)
+                        </label>
+
+                        <input
+                            type="number"
+                            id="profileAge"
+                            min="0"
+                            max="40"
+                            step="0.1"
+                            placeholder="Enter age"
+                        >
+                    </div>
+
+                </div>
+
+                <div class="profile-form-footer">
+
+                    <p>
+                        Changes will be saved to the
+                        Firebase Realtime Database.
+                    </p>
+
+                    <button
+                        type="submit"
+                        id="profileSaveBtn"
+                        class="profile-save-btn"
+                    >
+                        💾 Save Profile
+                    </button>
+
+                </div>
+
+            </form>
+
+        </section>
+
+    </div>
+
+    <!-- MONITORING INFORMATION -->
+
+    <section class="profile-card profile-monitoring-card">
+
+        <div class="profile-section-heading">
+            <div>
+                <h2>📡 Device & Monitoring Information</h2>
+                <p>Connected hardware and latest sensor status</p>
+            </div>
+        </div>
+
+        <div class="profile-monitoring-grid">
+
+            <div class="profile-monitoring-item">
+                <span>Device</span>
+                <strong>ESP32 Wearable Unit</strong>
+            </div>
+
+            <div class="profile-monitoring-item">
+                <span>Temperature Sensor</span>
+                <strong>DS18B20</strong>
+            </div>
+
+            <div class="profile-monitoring-item">
+                <span>Motion Sensor</span>
+                <strong>MPU6050</strong>
+            </div>
+
+            <div class="profile-monitoring-item">
+                <span>Sound Sensor</span>
+                <strong>MAX9814</strong>
+            </div>
+
+            <div class="profile-monitoring-item">
+                <span>Monitoring Status</span>
+
+                <strong id="profileDeviceStatus">
+                    Checking...
+                </strong>
+            </div>
+
+            <div class="profile-monitoring-item">
+                <span>Last Sensor Reading</span>
+
+                <strong id="profileLastReading">
+                    --
+                </strong>
+            </div>
+
+        </div>
+
+    </section>
+
+    <div class="profile-disclaimer">
+        ℹ️ Profile details are manually entered by the user.
+        Sensor measurements come from the actual ESP32
+        monitoring hardware.
+    </div>
+
+</div>
+
+<script src="{{ url_for('static', filename='js/profile.js') }}"></script>
+
+{% endblock %}

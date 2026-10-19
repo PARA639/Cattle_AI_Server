@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>{% block title %}Cattle AI Monitoring{% endblock %}</title>
+
+    <script>
+        (function () {
+            const saved = localStorage.getItem("cattle_theme") || "dark";
+
+            const dark = saved === "dark" || (
+                saved === "system" &&
+                window.matchMedia("(prefers-color-scheme: dark)").matches
+            );
+
+            if (dark) {
+                document.documentElement.classList.add("theme-preload-dark");
+            }
+        })();
+    </script>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/style.css') }}"
+    >
+
+    {% block head %}{% endblock %}
+</head>
+
+<body>
+
+<div class="app-layout">
+
+    <aside class="sidebar">
+
+        <a
+            href="https://web.mitsgwalior.in/"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="mits-brand"
+        >
+            <img
+                src="{{ url_for('static', filename='images/mits-logo.png') }}"
+                alt="MITS-DU Gwalior"
+            >
+        </a>
+
+        <div class="brand-name">
+            🐄 Cattle<span>AI</span>
+            <small data-i18n="brand.subtitle">
+                Health Monitoring System
+            </small>
+        </div>
+
+        <nav class="sidebar-nav">
+
+            <a href="/" class="nav-link">
+                🏠 <span data-i18n="nav.overview">Overview</span>
+            </a>
+
+            <a href="/analytics" class="nav-link">
+                📊 <span data-i18n="nav.analytics">Analytics</span>
+            </a>
+
+            <a href="/ai-health" class="nav-link">
+                🧠 <span data-i18n="nav.aiHealth">AI Health</span>
+            </a>
+
+            <a href="/alerts" class="nav-link">
+                🚨 <span data-i18n="nav.alerts">Alerts</span>
+            </a>
+
+            <a href="/profile" class="nav-link">
+                🐄 <span data-i18n="nav.profile">Cattle Profile</span>
+            </a>
+
+            <a href="/settings" class="nav-link">
+                ⚙️ <span data-i18n="nav.settings">Settings</span>
+            </a>
+
+        </nav>
+
+        <div class="sidebar-footer">
+            ESP32 • Firebase • Python AI<br>
+            <span data-i18n="footer.realData">
+                Real Sensor Data Only
+            </span>
+        </div>
+
+    </aside>
+
+    <main class="main-content">
+
+        <header class="top-header">
+
+            <div>
+                <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+
+                <p data-i18n="header.subtitle">
+                    Smart Cattle Health Monitoring Platform
+                </p>
+            </div>
+
+            <div class="header-actions">
+
+                <span class="device-badge" id="globalStatus">
+                    ● Checking...
+                </span>
+
+                <button
+                    type="button"
+                    class="theme-button"
+                    onclick="toggleTheme()"
+                    id="themeToggle"
+                >
+                    🌙 Dark
+                </button>
+
+            </div>
+
+        </header>
+
+        <div class="page-container">
+            {% block content %}{% endblock %}
+        </div>
+
+        <footer class="main-footer">
+            <span data-i18n="footer.platform">
+                Cattle AI Health Monitoring System
+            </span>
+            | MITS-DU Gwalior
+        </footer>
+
+    </main>
+
+</div>
+
+<script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+<script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+
+{% block scripts %}{% endblock %}
+
+</body>
+</html>

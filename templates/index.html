@@ -1,0 +1,315 @@
+{% extends "base.html" %}
+
+{% block title %}Overview | Cattle AI{% endblock %}
+
+{% block page_title %}
+<span data-i18n="overview.pageTitle">Dashboard Overview</span>
+{% endblock %}
+
+{% block content %}
+
+<h2 class="section-title" data-i18n="overview.live">
+    Live Sensor Monitoring
+</h2>
+
+<div class="grid">
+
+    <div class="card">
+        <div class="card-title">
+            🌡 <span data-i18n="overview.temperature">Surface Temperature</span>
+        </div>
+        <div class="card-value" id="temperature">--</div>
+        <p data-i18n="overview.celsius">Degrees Celsius (°C)</p>
+    </div>
+
+    <div class="card">
+        <div class="card-title">
+            🏃 <span data-i18n="overview.acceleration">Acceleration</span>
+        </div>
+        <div class="card-value" id="acceleration">--</div>
+        <p>m/s²</p>
+    </div>
+
+    <div class="card">
+        <div class="card-title">
+            🎤 <span data-i18n="overview.sound">Sound Peak</span>
+        </div>
+        <div class="card-value" id="sound">--</div>
+        <p data-i18n="overview.adc">ADC Peak-to-Peak</p>
+    </div>
+
+</div>
+
+<h2 class="section-title" data-i18n="overview.ai">
+    AI Monitoring
+</h2>
+
+<div class="grid">
+
+    <div class="card">
+        <div class="card-title">
+            🧠 <span data-i18n="overview.health">Health Status</span>
+        </div>
+        <div class="card-value" id="healthStatus">--</div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">
+            ⚠ <span data-i18n="overview.risk">Risk Score</span>
+        </div>
+        <div class="card-value" id="riskScore">--</div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">
+            🔍 <span data-i18n="overview.anomaly">Anomaly Detection</span>
+        </div>
+        <div class="card-value" id="anomalyStatus">--</div>
+    </div>
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+
+<script>
+(function () {
+    "use strict";
+
+    let overviewTimer = null;
+    let overviewLoading = false;
+    let latestOverviewResult = null;
+
+    function overviewTranslate(key, fallback) {
+        return typeof cattleTranslate === "function"
+            ? cattleTranslate(key)
+            : fallback;
+    }
+
+    function overviewNumber(value) {
+        if (
+            value === null ||
+            value === undefined ||
+            value === "" ||
+            typeof value === "boolean"
+        ) {
+            return null;
+        }
+
+        const number = Number(value);
+        return Number.isFinite(number) ? number : null;
+    }
+
+    function overviewText(id, value) {
+        const element = document.getElementById(id);
+        if (element) element.textContent = value;
+    }
+
+    function overviewRefreshSeconds() {
+        const seconds = Number(
+            localStorage.getItem("cattle_refresh_interval") || "15"
+        );
+
+        return [10, 15, 30, 60].includes(seconds)
+            ? seconds
+            : 15;
+    }
+
+    function renderOverview() {
+        const result = latestOverviewResult;
+
+        if (!result || !result.success) {
+            overviewText("temperature", "--");
+            overviewText("acceleration", "--");
+            overviewText("sound", "--");
+
+            overviewText(
+                "healthStatus",
+                overviewTranslate("overview.unavailable", "Unavailable")
+            );
+
+            overviewText("riskScore", "--");
+            overviewText("anomalyStatus", "--");
+            return;
+        }
+
+        const live = result.live || {};
+        const ai = result.ai || {};
+
+        const temperature = overviewNumber(live.temperature);
+        const acceleration = overviewNumber(live.accel_mag);
+        const sound = overviewNumber(live.sound_peak);
+
+        overviewText(
+            "temperature",
+            live.temp_valid === true && temperature !== null
+                ? temperature.toFixed(2)
+                : "--"
+        );
+
+        overviewText(
+            "acceleration",
+            live.mpu_valid === false || acceleration === null
+                ? "--"
+                : acceleration.toFixed(2)
+        );
+
+        overviewText(
+            "sound",
+            sound === null ? "--" : String(sound)
+        );
+
+        // Historical readings remain visible, but must
+        // not be presented as fresh measurements.
+
+        if (!result.online) {
+            overviewText(
+                "healthStatus",
+                overviewTranslate("overview.offline", "OFFLINE")
+            );
+
+            overviewText("riskScore", "--");
+
+            overviewText(
+                "anomalyStatus",
+                overviewTranslate("overview.stale", "OLD DATA")
+            );
+
+            return;
+        }
+
+        const liveTimestamp = overviewNumber(live.timestamp);
+        const aiTimestamp = overviewNumber(ai.source_timestamp);
+
+        const aiCurrent = (
+            liveTimestamp !== null &&
+            aiTimestamp !== null &&
+            Math.abs(liveTimestamp - aiTimestamp) <= 15
+        );
+
+        if (!aiCurrent) {
+            overviewText(
+                "healthStatus",
+                overviewTranslate("overview.pending", "AI PENDING")
+            );
+
+            overviewText("riskScore", "--");
+
+            overviewText(
+                "anomalyStatus",
+                overviewTranslate("overview.pending", "AI PENDING")
+            );
+            return;
+        }
+
+        const healthStatus = String(
+            ai.health_status || "UNKNOWN"
+        ).toUpperCase();
+
+        const healthKeys = {
+            NORMAL: "overview.normal",
+            HEALTHY: "overview.normal",
+            WARNING: "overview.warning",
+            CRITICAL: "overview.critical",
+            HIGH_RISK: "overview.critical"
+        };
+
+        overviewText(
+            "healthStatus",
+            overviewTranslate(
+                healthKeys[healthStatus] || "overview.unknown",
+                healthStatus
+            )
+        );
+
+        const risk = overviewNumber(ai.risk_score);
+
+        overviewText(
+            "riskScore",
+            risk === null ? "--" : String(risk)
+        );
+
+        if (ai.model_trained !== true) {
+            overviewText(
+                "anomalyStatus",
+                overviewTranslate("overview.notReady", "NOT READY")
+            );
+        } else {
+            overviewText(
+                "anomalyStatus",
+                ai.is_anomaly === true
+                    ? overviewTranslate("overview.detected", "DETECTED")
+                    : overviewTranslate("overview.normal", "NORMAL")
+            );
+        }
+    }
+
+    async function loadOverview() {
+        if (overviewLoading) return;
+
+        overviewLoading = true;
+
+        try {
+            const response = await fetch(
+                "/api/live",
+                { cache: "no-store" }
+            );
+
+            if (!response.ok) {
+                throw new Error("Live API request failed");
+            }
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error("Live API returned no data");
+            }
+
+            latestOverviewResult = result;
+
+        } catch (error) {
+            console.error("Overview:", error);
+            latestOverviewResult = null;
+        } finally {
+            overviewLoading = false;
+            renderOverview();
+        }
+    }
+
+    function startOverviewRefresh() {
+        if (overviewTimer !== null) {
+            clearInterval(overviewTimer);
+        }
+
+        loadOverview();
+
+        overviewTimer = setInterval(
+            loadOverview,
+            overviewRefreshSeconds() * 1000
+        );
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        startOverviewRefresh();
+
+        window.addEventListener(
+            "cattle:settings-changed",
+            startOverviewRefresh
+        );
+
+        window.addEventListener("storage", event => {
+            if (event.key === "cattle_refresh_interval") {
+                startOverviewRefresh();
+            }
+        });
+
+        window.addEventListener(
+            "cattle:language-applied",
+            renderOverview
+        );
+    });
+})();
+</script>
+
+{% endblock %}

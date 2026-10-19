@@ -27,3 +27,6 @@ Thumbs.db
 *_backup.py
 *_backup.js
 *_before_refresh.js
+
+app_before_github.py
+generate_github_docs.py

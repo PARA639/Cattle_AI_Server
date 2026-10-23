@@ -1,275 +1,458 @@
+import time
+import math
+import threading
+from pathlib import Path
+from datetime import datetime
+
 import firebase_admin
 from firebase_admin import credentials, db
-import time
+
 import numpy as np
 from sklearn.ensemble import IsolationForest
 
-# ==========================================================
-# 1. FIREBASE & MODEL INITIALIZATION
-# ==========================================================
-print("🔥 Initializing Cattle AI Health Engine v1.0...")
 
-# Initialize Firebase
-from pathlib import Path
+# ==========================================================
+# CONFIGURATION
+# ==========================================================
 
 BASE_DIR = Path(__file__).resolve().parent
 
-cred = credentials.Certificate(
-    str(BASE_DIR / "serviceAccountKey.json")
+DATABASE_URL = (
+    "https://cow-project-3aa86-default-rtdb.firebaseio.com"
 )
-firebase_admin.initialize_app(cred, {
-    'databaseURL': 'https://cow-project-3aa86-default-rtdb.firebaseio.com' # CHANGE THIS
-})
-print("✅ Firebase Connection: Success")
 
-# Initialize Isolation Forest Model
-# contamination='auto' means the model will decide the anomaly threshold
-model = IsolationForest(contamination='auto', random_state=42)
+COW_ID = "cow_001"
+
+MAX_READING_AGE_SECONDS = 60
+FUTURE_TOLERANCE_SECONDS = 60
+
+RECONNECT_DELAY_SECONDS = 5
+
+TRAINING_SAMPLES = 100
+
+
+# ==========================================================
+# FIREBASE INITIALIZATION
+# ==========================================================
+
+print("🔥 Initializing Cattle AI Health Engine v1.1...")
+
+if not firebase_admin._apps:
+    cred = credentials.Certificate(
+        str(BASE_DIR / "serviceAccountKey.json")
+    )
+
+    firebase_admin.initialize_app(
+        cred,
+        {"databaseURL": DATABASE_URL}
+    )
+
+print("✅ Firebase Admin SDK Initialized")
+
+ref_live = db.reference(f"/cows/{COW_ID}/live")
+ref_ai = db.reference(f"/cows/{COW_ID}/ai_output")
+ref_ai_history = db.reference(
+    f"/cows/{COW_ID}/ai_history"
+)
+
+print(f"🧠 Monitoring Cow ID: {COW_ID}")
+
+
+# ==========================================================
+# MODEL INITIALIZATION
+# ==========================================================
+
+model = IsolationForest(
+    contamination="auto",
+    random_state=42
+)
+
 is_model_trained = False
 training_data = []
 
-# Track the timestamp of the last processed reading
 last_processed_timestamp = None
 
-# Reference to the specific cow's data
-COW_ID = "cow_001"
-ref_live = db.reference(f'/cows/{COW_ID}/live')
-ref_ai = db.reference(f'/cows/{COW_ID}/ai_output')
-ref_ai_history = db.reference(
-    f'/cows/{COW_ID}/ai_history'
-)
+processing_lock = threading.Lock()
 
-
-print(f"🧠 Monitoring Cow ID: {COW_ID}\n")
 
 # ==========================================================
-# 2. FEATURE ENGINEERING & ANALYSIS
+# VALIDATION
 # ==========================================================
+
+def valid_number(value):
+    if isinstance(value, bool):
+        return None
+
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+
+    if not math.isfinite(number):
+        return None
+
+    return number
+
+
+def validate_sensor_data(data):
+    """
+    Accept only complete, fresh, real sensor readings.
+    """
+
+    if not isinstance(data, dict):
+        return None
+
+    timestamp = valid_number(data.get("timestamp"))
+
+    if timestamp is None or timestamp <= 0:
+        return None
+
+    age = time.time() - timestamp
+
+    if age > MAX_READING_AGE_SECONDS:
+        print("⏭️ Stale sensor reading ignored.")
+        return None
+
+    if age < -FUTURE_TOLERANCE_SECONDS:
+        print("⚠️ Future timestamp ignored.")
+        return None
+
+    if data.get("temp_valid") is not True:
+        print("⚠️ Invalid temperature reading.")
+        return None
+
+    temperature = valid_number(data.get("temperature"))
+    accel_mag = valid_number(data.get("accel_mag"))
+    sound_peak = valid_number(data.get("sound_peak"))
+
+    if any(
+        value is None
+        for value in [temperature, accel_mag, sound_peak]
+    ):
+        print("⚠️ Missing or invalid sensor measurements.")
+        return None
+
+    return {
+        "timestamp": timestamp,
+        "temperature": temperature,
+        "accel_mag": accel_mag,
+        "sound_peak": sound_peak
+    }
+
+
+# ==========================================================
+# AI HEALTH ANALYSIS
+# ==========================================================
+
 def analyze_health_data(data):
     """
-    Analyzes sensor data using a hybrid approach:
-    1. Rule-based checks for immediate red flags.
-    2. ML-based anomaly detection for subtle changes.
-    """
-    global is_model_trained, training_data, model
+    Experimental monitoring:
+    - Rule-based indicators
+    - Isolation Forest anomaly detection
 
-    # --- Feature Extraction ---
-    temp = data.get('temperature', 0)
-    accel_mag = data.get('accel_mag', 0)
-    sound_peak = data.get('sound_peak', 0)
-    
-    # --- Rule-Based Analysis ---
+    Not a veterinary diagnosis.
+    """
+
+    global is_model_trained
+
+    temperature = data["temperature"]
+    accel_mag = data["accel_mag"]
+    sound_peak = data["sound_peak"]
+
     risk_score = 0
     alerts = []
 
-    # Rule 1: High Temperature (Surface temp, so adjust threshold)
-    if temp > 38.0: # NOTE: This is surface temp, not core. Calibrate this!
+    # Surface temperature: experimental threshold
+    if temperature > 38.0:
         risk_score += 40
-        alerts.append("High Temperature Detected")
-    
-        # Rule 2: Activity / Immobility Analysis
-    #
-    # Temporarily disabled.
-    #
-    # A single acceleration magnitude cannot reliably
-    # identify cattle immobility or resting behavior.
-    #
-    # Future implementation will analyze variation
-    # across multiple real sensor readings collected
-    # over a defined time window.
-        
-    # Rule 3: High Agitation / Movement
-    if accel_mag > 15.0: # Value needs calibration
+        alerts.append("High Surface Temperature Detected")
+
+    # Single acceleration magnitude cannot prove immobility.
+    # Only flag unusually high acceleration magnitude.
+    if accel_mag > 15.0:
         risk_score += 15
-        alerts.append("High Agitation Detected")
+        alerts.append("High Acceleration Event")
 
-    # Rule 4: High Sound Peak
-    if sound_peak > 3000: # Value needs calibration
+    # Raw sound ADC peak-to-peak, not decibels.
+    if sound_peak > 3000:
         risk_score += 10
-        alerts.append("Loud Sound Event")
+        alerts.append("High Sound ADC Event")
 
-    # --- ML-Powered Anomaly Detection ---
-    features = [temp, accel_mag, sound_peak]
-    anomaly_score = 0
+    features = [
+        temperature,
+        accel_mag,
+        sound_peak
+    ]
+
+    anomaly_score = 0.0
     is_anomaly = False
 
     if not is_model_trained:
-        # Collect data for initial training
-        training_data.append(features)
-        print(f"⏳ Collecting training data... ({len(training_data)}/100)")
-        if len(training_data) >= 100:
-            print("🏋️ Training Anomaly Detection Model...")
-            model.fit(np.array(training_data))
-            is_model_trained = True
-            print("✅ Model Trained!")
-    else:
-        # Predict anomaly
-        prediction = model.predict([features])
-        anomaly_score = model.decision_function([features])[0]
-        if prediction[0] == -1: # -1 indicates an anomaly
-            is_anomaly = True
-            risk_score += 30 # Add significant weight for anomalies
-            alerts.append("Unusual Behavior Pattern (AI)")
 
-    # --- Final Health Status ---
+        training_data.append(features)
+
+        print(
+            f"⏳ Collecting real training readings: "
+            f"{len(training_data)}/{TRAINING_SAMPLES}"
+        )
+
+        if len(training_data) >= TRAINING_SAMPLES:
+
+            print("🏋️ Training Isolation Forest...")
+
+            model.fit(
+                np.array(training_data)
+            )
+
+            is_model_trained = True
+
+            print("✅ Experimental AI Model Trained")
+
+    else:
+
+        prediction = model.predict([features])
+
+        anomaly_score = float(
+            model.decision_function([features])[0]
+        )
+
+        if prediction[0] == -1:
+
+            is_anomaly = True
+
+            risk_score += 30
+
+            alerts.append(
+                "Unusual Behavior Pattern (AI)"
+            )
+
     if risk_score >= 60:
         health_status = "HIGH_RISK"
+
     elif risk_score >= 30:
         health_status = "WARNING"
+
     else:
         health_status = "NORMAL"
 
-    # --- Prepare JSON for Firebase ---
-    output = {
-        'last_updated': time.strftime('%Y-%m-%d %H:%M:%S'),
-        'health_status': health_status,
-        'risk_score': risk_score,
-        'alerts': ", ".join(alerts) if alerts else "None",
-        'is_anomaly': is_anomaly,
-        'anomaly_score': round(anomaly_score, 4),
-        'model_trained': is_model_trained
+    analysis_timestamp = time.time()
+
+    return {
+        "last_updated": datetime.now().strftime(
+            "%Y-%m-%d %H:%M:%S"
+        ),
+        "analysis_timestamp": analysis_timestamp,
+        "source_timestamp": data["timestamp"],
+        "health_status": health_status,
+        "risk_score": risk_score,
+        "alerts": (
+            ", ".join(alerts)
+            if alerts
+            else "None"
+        ),
+        "is_anomaly": is_anomaly,
+        "anomaly_score": round(anomaly_score, 4),
+        "model_trained": is_model_trained,
+        "model_validated": False
     }
-    
-    return output
+
 
 # ==========================================================
-# 3. REAL-TIME DATABASE LISTENER
-# DUPLICATE READING PROTECTION
+# PROCESS FIREBASE SENSOR READING
+# ==========================================================
+
+def process_reading(raw_data):
+
+    global last_processed_timestamp
+
+    data = validate_sensor_data(raw_data)
+
+    if data is None:
+        return
+
+    timestamp = data["timestamp"]
+
+    with processing_lock:
+
+        if (
+            last_processed_timestamp is not None
+            and timestamp <= last_processed_timestamp
+        ):
+            print("⏭️ Duplicate sensor reading ignored.")
+            return
+
+        print(
+            "\n📡 Processing actual ESP32 reading..."
+        )
+
+        print(
+            f"Surface Temp: {data['temperature']} °C | "
+            f"Accel: {data['accel_mag']} m/s² | "
+            f"Sound ADC: {data['sound_peak']}"
+        )
+
+        ai_results = analyze_health_data(data)
+
+        history_record = ai_results.copy()
+        history_record["cow_id"] = COW_ID
+
+        # Use source timestamp as a stable history key.
+        # Prevents duplicate records after reconnection.
+        history_key = str(int(timestamp * 1000))
+
+        try:
+            # Write latest AI output and history together.
+            # Firebase multi-location update.
+            db.reference(
+                f"/cows/{COW_ID}"
+            ).update({
+                "ai_output": ai_results,
+                f"ai_history/{history_key}": history_record
+            })
+
+            last_processed_timestamp = timestamp
+
+            print(
+                "✅ AI output and history saved | "
+                f"Status: {ai_results['health_status']} | "
+                f"Risk: {ai_results['risk_score']}"
+            )
+
+        except Exception as error:
+
+            print(
+                f"❌ Firebase write failed: {error}"
+            )
+
+            print(
+                "⚠️ Reading will not be marked saved."
+            )
+
+
+# ==========================================================
+# FIREBASE LISTENER CALLBACK
 # ==========================================================
 
 def listener(event):
 
-    global last_processed_timestamp
-
-    data = event.data
-
-    # Ignore empty or invalid Firebase events
-    if not isinstance(data, dict):
-        return
-
-    # Firebase listener may also receive partial updates.
-    # Only process complete live sensor snapshots.
-    if "timestamp" not in data:
-        return
-
     try:
-        timestamp = float(data["timestamp"])
-    except (TypeError, ValueError):
-        print("⚠️ Invalid timestamp. Reading ignored.")
-        return
+        # On initial connection, "/" contains full live data.
+        if event.path == "/":
 
-    # Reject invalid timestamps
-    if timestamp <= 0:
-        print("⚠️ Missing or invalid timestamp.")
-        return
+            if isinstance(event.data, dict):
+                process_reading(event.data)
 
-    # Reject duplicate and older readings
-    if (
-        last_processed_timestamp is not None
-        and timestamp <= last_processed_timestamp
-    ):
-        print("⏭️ Duplicate or older reading ignored.")
-        return
-
-    # Reject stale readings.
-    # ESP32 should upload timestamps in Unix UTC seconds.
-    current_time = time.time()
-    data_age = current_time - timestamp
-
-    if data_age < -60:
-        print("⚠️ Future timestamp detected. Reading ignored.")
-        return
-
-    if data_age > 60:
-        print("⏭️ Old Firebase snapshot ignored.")
-        return
-
-    # Check required measurement fields
-    required_fields = [
-        "temperature",
-        "accel_mag",
-        "sound_peak"
-    ]
-
-    for field in required_fields:
-        if data.get(field) is None:
-            print(f"⚠️ Missing {field}. Reading ignored.")
             return
 
-    # Only accept valid temperature readings
-    if data.get("temp_valid") is not True:
-        print("⚠️ Invalid temperature reading.")
-        return
+        # Firebase may send individual field updates.
+        # Re-fetch the complete live record.
+        #
+        # NOTE: This adds an API call for partial updates,
+        # but prevents analysis of incomplete readings.
 
-    # Mark as processed
-    last_processed_timestamp = timestamp
+        if event.path:
 
-    print(
-        f"\n📡 New sensor reading: "
-        f"{time.strftime('%H:%M:%S')}"
-    )
+            latest_data = ref_live.get()
 
-    print(
-        f"Temperature: {data['temperature']} °C | "
-        f"Acceleration: {data['accel_mag']} m/s² | "
-        f"Sound: {data['sound_peak']}"
-    )
+            if isinstance(latest_data, dict):
+                process_reading(latest_data)
 
-       # ==========================================
-    # RUN AI ANALYSIS
-    # ==========================================
+    except Exception as error:
 
-    ai_results = analyze_health_data(data)
+        print(
+            f"⚠️ Listener callback error: {error}"
+        )
 
-    # Preserve the source sensor timestamp
-    ai_results["source_timestamp"] = timestamp
 
-    # Record when the analysis was performed
-    ai_results["analysis_timestamp"] = time.time()
+# ==========================================================
+# CONNECTION MONITORING
+# ==========================================================
 
-    # Mark current model as experimental
-    ai_results["model_validated"] = False
+def run_listener():
 
-    # ==========================================
-    # SAVE LATEST AI RESULT
-    # ==========================================
-
-    ref_ai.set(ai_results)
-
-    # ==========================================
-    # SAVE HISTORICAL AI RESULT
-    # ==========================================
-
-    history_record = ai_results.copy()
-
-    history_record["cow_id"] = COW_ID
-
-    ref_ai_history.push(history_record)
-
-    print(
-        f"✅ AI Analysis Saved | "
-        f"Status: {ai_results['health_status']} | "
-        f"Risk: {ai_results['risk_score']} | "
-        f"Source Timestamp: {timestamp}"
-    )
-    
-    # ==========================================
-# START FIREBASE LISTENER
-# ==========================================
-
-print("📡 Starting Firebase Live Listener...")
-
-ref_live.listen(listener)
-
-print("✅ Firebase Listener Started")
-
-# ==========================================
-# KEEP AI ENGINE RUNNING
-# ==========================================
-
-try:
     while True:
-        time.sleep(1)
 
-except KeyboardInterrupt:
-    print("\n🛑 Shutting down AI Engine.")
+        firebase_listener = None
+
+        try:
+
+            print(
+                "\n📡 Connecting Firebase Live Listener..."
+            )
+
+            firebase_listener = ref_live.listen(
+                listener
+            )
+
+            print(
+                "✅ Firebase Listener Connected"
+            )
+
+            # Firebase Admin listener uses a background thread.
+            # Check thread health so a failed listener is restarted.
+
+            while True:
+
+                time.sleep(5)
+
+                thread = getattr(
+                    firebase_listener,
+                    "_thread",
+                    None
+                )
+
+                if (
+                    thread is not None
+                    and not thread.is_alive()
+                ):
+
+                    raise ConnectionError(
+                        "Firebase listener thread stopped."
+                    )
+
+        except KeyboardInterrupt:
+
+            print(
+                "\n🛑 AI Engine stopped by user."
+            )
+
+            break
+
+        except Exception as error:
+
+            print(
+                f"⚠️ Firebase listener disconnected: {error}"
+            )
+
+            print(
+                f"🔄 Reconnecting in "
+                f"{RECONNECT_DELAY_SECONDS} seconds..."
+            )
+
+            time.sleep(
+                RECONNECT_DELAY_SECONDS
+            )
+
+        finally:
+
+            if firebase_listener is not None:
+
+                try:
+                    firebase_listener.close()
+
+                except Exception:
+                    pass
+
+
+# ==========================================================
+# MAIN
+# ==========================================================
+
+if __name__ == "__main__":
+
+    print(
+        "\n🚀 CattleAI Health Monitoring Started"
+    )
+
+    run_listener()
+    

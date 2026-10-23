@@ -14,6 +14,7 @@
 
 <div class="grid">
 
+    <!-- TEMPERATURE -->
     <div class="card">
         <div class="card-title">
             🌡 <span data-i18n="overview.temperature">Surface Temperature</span>
@@ -22,6 +23,7 @@
         <p data-i18n="overview.celsius">Degrees Celsius (°C)</p>
     </div>
 
+    <!-- ACCELERATION -->
     <div class="card">
         <div class="card-title">
             🏃 <span data-i18n="overview.acceleration">Acceleration</span>
@@ -30,6 +32,7 @@
         <p>m/s²</p>
     </div>
 
+    <!-- SOUND -->
     <div class="card">
         <div class="card-title">
             🎤 <span data-i18n="overview.sound">Sound Peak</span>
@@ -38,7 +41,19 @@
         <p data-i18n="overview.adc">ADC Peak-to-Peak</p>
     </div>
 
+    <!-- HEART RATE -->
+    <div class="card">
+        <div class="card-title">
+            ❤️ <span>Heart Rate</span>
+        </div>
+
+        <div class="card-value" id="heartRate">--</div>
+
+        <p>BPM · Requires cardiac sensor</p>
+    </div>
+
 </div>
+
 
 <h2 class="section-title" data-i18n="overview.ai">
     AI Monitoring
@@ -46,6 +61,7 @@
 
 <div class="grid">
 
+    <!-- HEALTH STATUS -->
     <div class="card">
         <div class="card-title">
             🧠 <span data-i18n="overview.health">Health Status</span>
@@ -53,6 +69,7 @@
         <div class="card-value" id="healthStatus">--</div>
     </div>
 
+    <!-- RISK SCORE -->
     <div class="card">
         <div class="card-title">
             ⚠ <span data-i18n="overview.risk">Risk Score</span>
@@ -60,6 +77,7 @@
         <div class="card-value" id="riskScore">--</div>
     </div>
 
+    <!-- ANOMALY -->
     <div class="card">
         <div class="card-title">
             🔍 <span data-i18n="overview.anomaly">Anomaly Detection</span>
@@ -70,6 +88,7 @@
 </div>
 
 {% endblock %}
+
 
 {% block scripts %}
 
@@ -82,9 +101,18 @@
     let latestOverviewResult = null;
 
     function overviewTranslate(key, fallback) {
-        return typeof cattleTranslate === "function"
-            ? cattleTranslate(key)
-            : fallback;
+        if (typeof cattleTranslate === "function") {
+            const translated = cattleTranslate(key);
+
+            if (
+                translated &&
+                translated !== key
+            ) {
+                return translated;
+            }
+        }
+
+        return fallback;
     }
 
     function overviewNumber(value) {
@@ -103,7 +131,10 @@
 
     function overviewText(id, value) {
         const element = document.getElementById(id);
-        if (element) element.textContent = value;
+
+        if (element) {
+            element.textContent = value;
+        }
     }
 
     function overviewRefreshSeconds() {
@@ -123,10 +154,14 @@
             overviewText("temperature", "--");
             overviewText("acceleration", "--");
             overviewText("sound", "--");
+            overviewText("heartRate", "--");
 
             overviewText(
                 "healthStatus",
-                overviewTranslate("overview.unavailable", "Unavailable")
+                overviewTranslate(
+                    "overview.unavailable",
+                    "Unavailable"
+                )
             );
 
             overviewText("riskScore", "--");
@@ -140,6 +175,10 @@
         const temperature = overviewNumber(live.temperature);
         const acceleration = overviewNumber(live.accel_mag);
         const sound = overviewNumber(live.sound_peak);
+
+        // ---------------------------------------
+        // ACTUAL SENSOR READINGS
+        // ---------------------------------------
 
         overviewText(
             "temperature",
@@ -160,27 +199,65 @@
             sound === null ? "--" : String(sound)
         );
 
-        // Historical readings remain visible, but must
-        // not be presented as fresh measurements.
+        // ---------------------------------------
+        // HEART RATE
+        // Only genuine measured cardiac data.
+        // ---------------------------------------
+
+        const heartRate = overviewNumber(
+            live.heart_rate_bpm
+        );
+
+        const measuredHeartRate = (
+            live.heart_rate_source === "measured" &&
+            heartRate !== null &&
+            heartRate > 0
+        );
+
+        overviewText(
+            "heartRate",
+            measuredHeartRate
+                ? heartRate.toFixed(0)
+                : "--"
+        );
+
+        // ---------------------------------------
+        // SENSOR FRESHNESS
+        // ---------------------------------------
 
         if (!result.online) {
             overviewText(
                 "healthStatus",
-                overviewTranslate("overview.offline", "OFFLINE")
+                overviewTranslate(
+                    "overview.offline",
+                    "OFFLINE"
+                )
             );
 
             overviewText("riskScore", "--");
 
             overviewText(
                 "anomalyStatus",
-                overviewTranslate("overview.stale", "OLD DATA")
+                overviewTranslate(
+                    "overview.stale",
+                    "OLD DATA"
+                )
             );
 
             return;
         }
 
-        const liveTimestamp = overviewNumber(live.timestamp);
-        const aiTimestamp = overviewNumber(ai.source_timestamp);
+        // ---------------------------------------
+        // AI RESULT FRESHNESS
+        // ---------------------------------------
+
+        const liveTimestamp = overviewNumber(
+            live.timestamp
+        );
+
+        const aiTimestamp = overviewNumber(
+            ai.source_timestamp
+        );
 
         const aiCurrent = (
             liveTimestamp !== null &&
@@ -191,17 +268,28 @@
         if (!aiCurrent) {
             overviewText(
                 "healthStatus",
-                overviewTranslate("overview.pending", "AI PENDING")
+                overviewTranslate(
+                    "overview.pending",
+                    "AI PENDING"
+                )
             );
 
             overviewText("riskScore", "--");
 
             overviewText(
                 "anomalyStatus",
-                overviewTranslate("overview.pending", "AI PENDING")
+                overviewTranslate(
+                    "overview.pending",
+                    "AI PENDING"
+                )
             );
+
             return;
         }
+
+        // ---------------------------------------
+        // CURRENT AI RESULTS
+        // ---------------------------------------
 
         const healthStatus = String(
             ai.health_status || "UNKNOWN"
@@ -223,7 +311,9 @@
             )
         );
 
-        const risk = overviewNumber(ai.risk_score);
+        const risk = overviewNumber(
+            ai.risk_score
+        );
 
         overviewText(
             "riskScore",
@@ -233,20 +323,32 @@
         if (ai.model_trained !== true) {
             overviewText(
                 "anomalyStatus",
-                overviewTranslate("overview.notReady", "NOT READY")
+                overviewTranslate(
+                    "overview.notReady",
+                    "NOT READY"
+                )
             );
+
         } else {
             overviewText(
                 "anomalyStatus",
                 ai.is_anomaly === true
-                    ? overviewTranslate("overview.detected", "DETECTED")
-                    : overviewTranslate("overview.normal", "NORMAL")
+                    ? overviewTranslate(
+                        "overview.detected",
+                        "DETECTED"
+                    )
+                    : overviewTranslate(
+                        "overview.normal",
+                        "NORMAL"
+                    )
             );
         }
     }
 
     async function loadOverview() {
-        if (overviewLoading) return;
+        if (overviewLoading) {
+            return;
+        }
 
         overviewLoading = true;
 
@@ -257,20 +359,29 @@
             );
 
             if (!response.ok) {
-                throw new Error("Live API request failed");
+                throw new Error(
+                    "Live API request failed"
+                );
             }
 
             const result = await response.json();
 
             if (!result.success) {
-                throw new Error("Live API returned no data");
+                throw new Error(
+                    "Live API returned no data"
+                );
             }
 
             latestOverviewResult = result;
 
         } catch (error) {
-            console.error("Overview:", error);
+            console.error(
+                "Overview:",
+                error
+            );
+
             latestOverviewResult = null;
+
         } finally {
             overviewLoading = false;
             renderOverview();
@@ -290,25 +401,36 @@
         );
     }
 
-    document.addEventListener("DOMContentLoaded", () => {
-        startOverviewRefresh();
+    document.addEventListener(
+        "DOMContentLoaded",
+        () => {
 
-        window.addEventListener(
-            "cattle:settings-changed",
-            startOverviewRefresh
-        );
+            startOverviewRefresh();
 
-        window.addEventListener("storage", event => {
-            if (event.key === "cattle_refresh_interval") {
-                startOverviewRefresh();
-            }
-        });
+            window.addEventListener(
+                "cattle:settings-changed",
+                startOverviewRefresh
+            );
 
-        window.addEventListener(
-            "cattle:language-applied",
-            renderOverview
-        );
-    });
+            window.addEventListener(
+                "storage",
+                event => {
+                    if (
+                        event.key ===
+                        "cattle_refresh_interval"
+                    ) {
+                        startOverviewRefresh();
+                    }
+                }
+            );
+
+            window.addEventListener(
+                "cattle:language-applied",
+                renderOverview
+            );
+        }
+    );
+
 })();
 </script>
 

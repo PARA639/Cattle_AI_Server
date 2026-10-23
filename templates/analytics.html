@@ -131,9 +131,7 @@
                 Total Readings
             </p>
 
-            <h2 id="totalReadings">
-                --
-            </h2>
+            <h2 id="totalReadings">--</h2>
 
             <p class="analytics-card-description">
                 Records in selected time range
@@ -161,9 +159,7 @@
                 Average Temperature
             </p>
 
-            <h2 id="avgTemperature">
-                -- °C
-            </h2>
+            <h2 id="avgTemperature">-- °C</h2>
 
             <p class="analytics-card-description">
                 Average of valid temperature readings
@@ -191,9 +187,7 @@
                 Average Acceleration
             </p>
 
-            <h2 id="avgMotion">
-                -- m/s²
-            </h2>
+            <h2 id="avgMotion">-- m/s²</h2>
 
             <p class="analytics-card-description">
                 Average acceleration magnitude
@@ -221,9 +215,7 @@
                 Average Sound Peak
             </p>
 
-            <h2 id="avgSound">
-                --
-            </h2>
+            <h2 id="avgSound">--</h2>
 
             <p class="analytics-card-description">
                 Average ADC peak-to-peak reading
@@ -378,6 +370,51 @@
     </section>
 
 
+    <!-- ECG-STYLE RESEARCH VISUALIZATION -->
+    <section class="analytics-graph-card">
+
+        <div class="analytics-graph-header">
+
+            <div class="analytics-graph-title">
+
+                <span class="analytics-graph-icon graph-red">
+                    ❤️
+                </span>
+
+                <div>
+                    <h3>Cardiac Monitoring Research</h3>
+
+                    <p>
+                        ECG-style illustrative waveform
+                    </p>
+                </div>
+
+            </div>
+
+            <span class="analytics-graph-unit">
+                DEMO
+            </span>
+
+        </div>
+
+        <div class="analytics-chart-container">
+            <canvas id="ecgDemoChart"></canvas>
+        </div>
+
+        <p style="
+            padding: 0 20px 18px;
+            opacity: 0.75;
+            font-size: 12px;
+        ">
+            This waveform is illustrative only.
+            It is not an actual or predicted ECG recording.
+            A dedicated cardiac sensor is required for
+            genuine ECG and heart-rate monitoring.
+        </p>
+
+    </section>
+
+
     <!-- TIMELINE NAVIGATOR -->
     <section class="analytics-timeline-card">
 
@@ -411,9 +448,7 @@
 
             <div class="analytics-timeline-labels">
 
-                <span id="timelineStart">
-                    --
-                </span>
+                <span id="timelineStart">--</span>
 
                 <span
                     id="timelineCurrent"
@@ -422,9 +457,7 @@
                     No readings loaded
                 </span>
 
-                <span id="timelineEnd">
-                    --
-                </span>
+                <span id="timelineEnd">--</span>
 
             </div>
 
@@ -439,9 +472,10 @@
         <span>ℹ️</span>
 
         <p>
-            Analytics are generated from actual ESP32 readings
-            stored in Firebase Realtime Database.
-            No simulated sensor measurements are used.
+            Temperature, motion and sound analytics use actual
+            ESP32 measurements stored in Firebase.
+            The ECG-style waveform is illustrative only
+            and is not a sensor measurement.
         </p>
 
     </div>
@@ -452,7 +486,10 @@
 <!-- CHART.JS -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
 
-<!-- ANALYTICS JAVASCRIPT -->
+<!-- EXISTING ANALYTICS — DO NOT REMOVE -->
 <script src="{{ url_for('static', filename='js/analytics.js') }}"></script>
+
+<!-- ILLUSTRATIVE ECG GRAPH -->
+<script src="{{ url_for('static', filename='js/ecg_demo.js') }}"></script>
 
 {% endblock %}

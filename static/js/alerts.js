@@ -1,29 +1,30 @@
-// ==========================================
-// CATTLE AI — ALERTS PAGE
-// REAL FIREBASE ALERT MONITORING
-// ==========================================
+// ======================================================
+// CATTLE AI — ALERTS & MONITORING PAGE
+// Real Firebase sensor readings + recorded alert history
+// ======================================================
 
 let allAlerts = [];
 let monitoringStatus = null;
+let latestSensorData = null;
+let latestAIData = null;
 
 let activeAlertFilter = "all";
 let activeTimeRange = "7d";
 
+let alertsLoading = false;
 
-// ==========================================
+
+// ======================================================
 // HELPERS
-// ==========================================
+// ======================================================
 
 function alertsEl(id) {
     return document.getElementById(id);
 }
 
 function alertsSetText(id, value) {
-    const el = alertsEl(id);
-
-    if (el) {
-        el.textContent = value;
-    }
+    const element = alertsEl(id);
+    if (element) element.textContent = value;
 }
 
 function alertsEscape(value) {
@@ -35,16 +36,31 @@ function alertsEscape(value) {
         .replaceAll("'", "&#039;");
 }
 
+function alertsValidNumber(value) {
+    if (value === null || value === undefined || value === "") {
+        return null;
+    }
 
-// ==========================================
-// DATE FORMAT — INDIAN TIME
-// ==========================================
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+}
+
+function alertsFormatMeasurement(value, digits = 2) {
+    const number = alertsValidNumber(value);
+
+    return number === null
+        ? "Not available"
+        : number.toFixed(digits);
+}
 
 function alertsFormatDate(timestamp) {
+    const seconds = alertsValidNumber(timestamp);
 
-    const date = new Date(
-        Number(timestamp) * 1000
-    );
+    if (seconds === null || seconds <= 0) {
+        return "Unknown date";
+    }
+
+    const date = new Date(seconds * 1000);
 
     if (Number.isNaN(date.getTime())) {
         return "Unknown date";
@@ -62,44 +78,31 @@ function alertsFormatDate(timestamp) {
 }
 
 
-// ==========================================
-// TIME RANGE FILTER
-// ==========================================
+// ======================================================
+// ALERT FILTERS
+// ======================================================
 
 function alertsInSelectedRange() {
-
     if (activeTimeRange === "all") {
         return [...allAlerts];
     }
 
     const now = Date.now() / 1000;
 
-    const duration = (
-        activeTimeRange === "24h"
-            ? 86400
-            : 604800
-    );
+    const duration = activeTimeRange === "24h"
+        ? 86400
+        : 604800;
 
     return allAlerts.filter(alert => {
+        const timestamp = alertsValidNumber(alert.timestamp);
 
-        const timestamp = Number(
-            alert.timestamp
-        );
-
-        return (
-            timestamp >= now - duration
-            && timestamp <= now + 60
-        );
+        return timestamp !== null
+            && timestamp >= now - duration
+            && timestamp <= now + 60;
     });
 }
 
-
-// ==========================================
-// CATEGORY FILTER
-// ==========================================
-
 function alertsFilteredList() {
-
     const events = alertsInSelectedRange();
 
     if (activeAlertFilter === "all") {
@@ -107,304 +110,297 @@ function alertsFilteredList() {
     }
 
     return events.filter(
-        event =>
-            event.category === activeAlertFilter
+        event => event.category === activeAlertFilter
     );
 }
 
 
-// ==========================================
-// SUMMARY COUNTS
-// ==========================================
+// ======================================================
+// SUMMARY
+// ======================================================
 
 function alertsUpdateSummary() {
-
     const events = alertsInSelectedRange();
 
-    alertsSetText(
-        "alertsTotalCount",
-        events.length
-    );
+    alertsSetText("alertsTotalCount", events.length);
 
     alertsSetText(
         "alertsWarningCount",
-        events.filter(
-            e => e.category === "warning"
-        ).length
+        events.filter(e => e.category === "warning").length
     );
 
     alertsSetText(
         "alertsCriticalCount",
-        events.filter(
-            e => e.category === "high_risk"
-        ).length
+        events.filter(e => e.category === "high_risk").length
     );
 
     alertsSetText(
         "alertsAnomalyCount",
-        events.filter(
-            e => e.category === "anomaly"
-        ).length
+        events.filter(e => e.category === "anomaly").length
     );
 }
 
 
-// ==========================================
-// SENSOR MONITORING STATUS
-// ==========================================
+// ======================================================
+// LATEST ACTUAL SENSOR + AI INFORMATION
+// ======================================================
 
 function alertsUpdateMonitoring() {
+    const dot = alertsEl("alertsSystemDot");
+    const badge = alertsEl("alertsCurrentBadge");
+    const content = alertsEl("alertsCurrentContent");
 
-    const dot = alertsEl(
-        "alertsSystemDot"
-    );
+    if (!content) return;
 
-    const badge = alertsEl(
-        "alertsCurrentBadge"
-    );
+    const live = latestSensorData;
+    const ai = latestAIData;
 
-    const content = alertsEl(
-        "alertsCurrentContent"
-    );
+    const sourceTimestamp = live
+        ? alertsValidNumber(live.timestamp)
+        : null;
 
-    if (!monitoringStatus) {
-
-        alertsSetText(
-            "alertsSystemStatus",
-            "Monitoring Unavailable"
-        );
-
-        return;
-    }
-
-    const online = monitoringStatus.online;
+    const isFresh = monitoringStatus?.online === true;
 
     if (dot) {
-        dot.style.background = online
-            ? "#16a34a"
-            : "#ef4444";
+        dot.style.background = live
+            ? "#38bdf8"
+            : "#94a3b8";
     }
 
     alertsSetText(
         "alertsSystemStatus",
-        online
-            ? "Sensors Online"
-            : "Sensors Offline"
+        live
+            ? "Latest Recorded Sensor Data"
+            : "Waiting for Sensor Records"
     );
 
-    if (monitoringStatus.live_timestamp) {
-
-        alertsSetText(
-            "alertsLastUpdated",
-            "Last sensor reading: "
-            + alertsFormatDate(
-                monitoringStatus.live_timestamp
-            )
-            + " IST"
-        );
-
-    } else {
-
-        alertsSetText(
-            "alertsLastUpdated",
-            "No sensor data available"
-        );
-    }
-
-    if (!content) {
-        return;
-    }
-
-    // --------------------------------------
-    // SENSOR OFFLINE
-    // --------------------------------------
-
-    if (!online) {
-
-        if (badge) {
-            badge.textContent = "OFFLINE";
-            badge.style.background = "#fee2e2";
-            badge.style.color = "#b91c1c";
-        }
-
-        content.innerHTML = `
-            <div class="alerts-current-state">
-                <h3>Sensor Monitoring Offline</h3>
-
-                <p>
-                    ESP32 se fresh sensor readings
-                    receive nahi ho rahi hain.
-                </p>
-
-                <p>
-                    Neeche diye gaye alerts historical
-                    records hain, active emergencies nahi.
-                </p>
-            </div>
-        `;
-
-        return;
-    }
-
-    // --------------------------------------
-    // SENSOR ONLINE, AI PENDING
-    // --------------------------------------
-
-    if (!monitoringStatus.ai_current) {
-
-        if (badge) {
-            badge.textContent = "AI PENDING";
-            badge.style.background = "#fef3c7";
-            badge.style.color = "#92400e";
-        }
-
-        content.innerHTML = `
-            <div class="alerts-current-state">
-                <h3>Sensors Online</h3>
-
-                <p>
-                    Fresh hardware readings available hain.
-                </p>
-
-                <p>
-                    Matching fresh AI analysis ka
-                    wait ho raha hai.
-                </p>
-            </div>
-        `;
-
-        return;
-    }
-
-    // --------------------------------------
-    // FRESH AI RESULT
-    // --------------------------------------
-
-    const status = String(
-        monitoringStatus.health_status || "UNKNOWN"
-    ).toUpperCase();
-
-    const risk = monitoringStatus.risk_score;
-
-    let anomalyText = "Not evaluated";
-
-    if (monitoringStatus.is_anomaly === true) {
-        anomalyText = "Unusual pattern detected";
-    }
-
-    if (monitoringStatus.is_anomaly === false) {
-        anomalyText = "No anomaly flagged";
-    }
+    alertsSetText(
+        "alertsLastUpdated",
+        sourceTimestamp
+            ? "Last recorded: " + alertsFormatDate(sourceTimestamp) + " IST"
+            : "No recorded sensor timestamp available"
+    );
 
     if (badge) {
-        badge.textContent = status;
+        badge.textContent = live
+            ? (isFresh ? "LIVE DATA" : "LAST RECORDED")
+            : "NO DATA";
 
-        if (
-            status === "CRITICAL"
-            || status === "HIGH_RISK"
-        ) {
-            badge.style.background = "#fee2e2";
-            badge.style.color = "#b91c1c";
+        badge.style.background = isFresh
+            ? "#dcfce7"
+            : "#dbeafe";
 
-        } else if (status === "WARNING") {
-            badge.style.background = "#fef3c7";
-            badge.style.color = "#92400e";
+        badge.style.color = isFresh
+            ? "#166534"
+            : "#1d4ed8";
+    }
 
-        } else {
-            badge.style.background = "#dcfce7";
-            badge.style.color = "#166534";
-        }
+    if (!live) {
+        content.innerHTML = `
+            <div class="alerts-empty-state">
+                No actual Firebase sensor readings available yet.
+            </div>
+        `;
+        return;
+    }
+
+    const temperature = live.temp_valid === true
+        ? alertsFormatMeasurement(live.temperature, 1) + " °C"
+        : "Invalid / unavailable";
+
+    const acceleration = alertsFormatMeasurement(
+        live.accel_mag, 2
+    ) + " m/s²";
+
+    const sound = alertsFormatMeasurement(
+        live.sound_peak, 0
+    );
+
+    const readingLabel = isFresh
+        ? "Fresh ESP32 measurement"
+        : "Previously recorded ESP32 measurement";
+
+    let aiSection = `
+        <p style="margin-top: 16px;">
+            <strong>AI Analysis:</strong>
+            No stored AI result available.
+        </p>
+    `;
+
+    if (ai && typeof ai === "object") {
+        const aiStatus = String(
+            ai.health_status || "UNKNOWN"
+        ).toUpperCase();
+
+        const aiTimestamp = alertsValidNumber(
+            ai.source_timestamp
+        );
+
+        const aiIsCurrent =
+            isFresh &&
+            monitoringStatus?.ai_current === true &&
+            aiTimestamp !== null &&
+            sourceTimestamp !== null &&
+            aiTimestamp === sourceTimestamp;
+
+        const risk = alertsValidNumber(ai.risk_score);
+
+        const anomalyText = ai.model_trained !== true
+            ? "Model training / not evaluated"
+            : ai.is_anomaly === true
+                ? "Unusual pattern flagged"
+                : "No anomaly flagged";
+
+        aiSection = `
+            <div style="
+                margin-top: 18px;
+                padding-top: 14px;
+                border-top: 1px solid rgba(148,163,184,0.2);
+            ">
+                <h3 style="margin-bottom: 12px;">
+                    🧠 ${aiIsCurrent
+                        ? "Current AI Monitoring"
+                        : "Last Stored AI Analysis"}
+                </h3>
+
+                <p>
+                    <strong>Status:</strong>
+                    ${alertsEscape(aiStatus)}
+                </p>
+
+                <p>
+                    <strong>Risk Score:</strong>
+                    ${risk === null
+                        ? "Not available"
+                        : alertsEscape(risk) + " / 100"}
+                </p>
+
+                <p>
+                    <strong>AI Anomaly:</strong>
+                    ${alertsEscape(anomalyText)}
+                </p>
+
+                <p style="opacity: 0.75;">
+                    ${aiIsCurrent
+                        ? "AI result matches the current fresh reading."
+                        : "Historical AI result — not a current emergency."}
+                </p>
+            </div>
+        `;
     }
 
     content.innerHTML = `
         <div class="alerts-current-state">
-            <h3>Current AI Monitoring: ${alertsEscape(status)}</h3>
 
-            <p>
-                <strong>Risk Score:</strong>
-                ${risk === null || risk === undefined
-                    ? "Not available"
-                    : alertsEscape(risk) + " / 100"}
+            <h3 style="margin-bottom: 14px;">
+                📊 Latest Available Measurements
+            </h3>
+
+            <div style="
+                display: grid;
+                grid-template-columns: repeat(
+                    auto-fit,
+                    minmax(170px, 1fr)
+                );
+                gap: 12px;
+                margin-bottom: 16px;
+            ">
+
+                <div style="
+                    padding: 14px;
+                    border: 1px solid rgba(148,163,184,0.2);
+                    border-radius: 12px;
+                ">
+                    <small>🌡️ Surface Temperature</small>
+                    <h3>${alertsEscape(temperature)}</h3>
+                </div>
+
+                <div style="
+                    padding: 14px;
+                    border: 1px solid rgba(148,163,184,0.2);
+                    border-radius: 12px;
+                ">
+                    <small>📈 Acceleration Magnitude</small>
+                    <h3>${alertsEscape(acceleration)}</h3>
+                </div>
+
+                <div style="
+                    padding: 14px;
+                    border: 1px solid rgba(148,163,184,0.2);
+                    border-radius: 12px;
+                ">
+                    <small>🎤 Sound ADC Peak-to-Peak</small>
+                    <h3>${alertsEscape(sound)}</h3>
+                </div>
+
+            </div>
+
+            <p style="opacity: 0.8;">
+                ${alertsEscape(readingLabel)}
             </p>
 
-            <p>
-                <strong>Isolation Forest:</strong>
-                ${alertsEscape(anomalyText)}
+            <p style="opacity: 0.7;">
+                Recorded at:
+                ${alertsEscape(alertsFormatDate(sourceTimestamp))} IST
             </p>
 
-            <p>
-                Experimental monitoring result.
-                Not a veterinary diagnosis.
+            ${aiSection}
+
+            <p style="
+                margin-top: 14px;
+                opacity: 0.65;
+                font-size: 12px;
+            ">
+                Experimental sensor monitoring.
+                Measurements are not a veterinary diagnosis.
             </p>
+
         </div>
     `;
 }
 
 
-// ==========================================
-// ALERT HISTORY TIMELINE
-// ==========================================
+// ======================================================
+// HISTORY TIMELINE
+// ======================================================
 
 function alertsRenderTimeline() {
+    const container = alertsEl("alertsTimelineList");
 
-    const container = alertsEl(
-        "alertsTimelineList"
-    );
+    if (!container) return;
 
-    if (!container) {
-        return;
-    }
+    const events = alertsFilteredList();
 
-    const alerts = alertsFilteredList();
-
-    if (alerts.length === 0) {
-
+    if (events.length === 0) {
         container.innerHTML = `
             <div class="alerts-empty-state">
                 <div class="alerts-empty-icon">✓</div>
-
                 <h3>No Alerts Found</h3>
-
                 <p>
-                    Selected category aur time range
-                    mein koi actual recorded alert
-                    available nahi hai.
+                    No recorded alert events match the
+                    selected category and time range.
                 </p>
-
                 <p>
-                    Sirf Firebase mein stored real AI
-                    monitoring events yahan dikhenge.
+                    Real historical monitoring events
+                    will appear here when available.
                 </p>
             </div>
         `;
-
         return;
     }
 
-    container.innerHTML = alerts.map(alert => {
+    container.innerHTML = events.map(event => {
+        const category = event.category;
 
-        const category = alert.category;
-
-        let categoryLabel = "Warning";
+        let label = "Warning";
 
         if (category === "high_risk") {
-            categoryLabel = "High Risk";
+            label = "High Risk";
+        } else if (category === "anomaly") {
+            label = "AI Anomaly";
         }
 
-        if (category === "anomaly") {
-            categoryLabel = "AI Anomaly";
-        }
-
-        const riskText = (
-            alert.risk_score === null
-            || alert.risk_score === undefined
-        )
-            ? ""
-            : `
-                <span>
-                    Risk: ${alertsEscape(alert.risk_score)}
-                </span>
-            `;
+        const risk = alertsValidNumber(event.risk_score);
 
         return `
             <article class="alerts-event ${
@@ -412,16 +408,13 @@ function alertsRenderTimeline() {
                     ? "high-risk"
                     : alertsEscape(category)
             }">
-
                 <div class="alerts-event-header">
-
                     <div>
                         <span class="alerts-event-category">
-                            ${alertsEscape(categoryLabel)}
+                            ${alertsEscape(label)}
                         </span>
-
                         <h3>
-                            ${alertsEscape(alert.title)}
+                            ${alertsEscape(event.title)}
                         </h3>
                     </div>
 
@@ -431,17 +424,19 @@ function alertsRenderTimeline() {
                 </div>
 
                 <p class="alerts-event-message">
-                    ${alertsEscape(alert.message)}
+                    ${alertsEscape(event.message)}
                 </p>
 
                 <div class="alerts-event-meta">
                     <span>
                         ${alertsEscape(
-                            alertsFormatDate(alert.timestamp)
+                            alertsFormatDate(event.timestamp)
                         )} IST
                     </span>
 
-                    ${riskText}
+                    ${risk === null ? "" : `
+                        <span>Risk: ${alertsEscape(risk)}</span>
+                    `}
                 </div>
 
                 <p class="alerts-event-note">
@@ -450,102 +445,104 @@ function alertsRenderTimeline() {
                 </p>
             </article>
         `;
-
     }).join("");
 }
 
 
-// ==========================================
-// RENDER PAGE
-// ==========================================
+// ======================================================
+// RENDER
+// ======================================================
 
 function alertsRenderPage() {
-
     alertsUpdateSummary();
-
     alertsUpdateMonitoring();
-
     alertsRenderTimeline();
 }
 
 
-// ==========================================
-// LOAD ALERTS API
-// ==========================================
+// ======================================================
+// FETCH REAL FIREBASE DATA VIA FLASK
+// ======================================================
 
 async function alertsLoadData() {
+    if (alertsLoading) return;
 
-    const refreshBtn = alertsEl(
-        "alertsRefreshBtn"
-    );
+    alertsLoading = true;
+
+    const refreshBtn = alertsEl("alertsRefreshBtn");
 
     if (refreshBtn) {
         refreshBtn.disabled = true;
     }
 
     try {
+        const responses = await Promise.all([
+            fetch("/api/alerts", { cache: "no-store" }),
+            fetch("/api/live", { cache: "no-store" })
+        ]);
 
-        const response = await fetch(
-            "/api/alerts",
-            { cache: "no-store" }
-        );
+        const alertsResponse = responses[0];
+        const liveResponse = responses[1];
 
-        if (!response.ok) {
+        if (!alertsResponse.ok) {
             throw new Error(
-                "HTTP " + response.status
+                "Alerts API HTTP " + alertsResponse.status
             );
         }
 
-        const data = await response.json();
-
-        if (!data.success) {
-            throw new Error("Alerts API failed");
+        if (!liveResponse.ok) {
+            throw new Error(
+                "Live API HTTP " + liveResponse.status
+            );
         }
 
-        allAlerts = Array.isArray(data.events)
-            ? data.events
+        const alertsData = await alertsResponse.json();
+        const liveData = await liveResponse.json();
+
+        if (!alertsData.success || !liveData.success) {
+            throw new Error(
+                "Firebase API returned unsuccessful response"
+            );
+        }
+
+        allAlerts = Array.isArray(alertsData.events)
+            ? alertsData.events
             : [];
 
-        monitoringStatus = data.monitoring || null;
+        monitoringStatus = alertsData.monitoring || null;
+
+        latestSensorData = liveData.live || null;
+        latestAIData = liveData.ai || null;
 
         alertsRenderPage();
 
         console.log(
-            "Real Firebase alerts loaded:",
-            allAlerts.length
+            "CattleAI Alerts Loaded:",
+            allAlerts.length,
+            "events"
         );
 
     } catch (error) {
-
-        console.error(
-            "Alerts Error:",
-            error
-        );
+        console.error("Alerts loading error:", error);
 
         alertsSetText(
             "alertsSystemStatus",
-            "Connection Error"
+            "Monitoring Data Temporarily Unavailable"
         );
 
-        const container = alertsEl(
-            "alertsTimelineList"
-        );
+        const content = alertsEl("alertsCurrentContent");
 
-        if (container) {
-
-            container.innerHTML = `
+        if (content) {
+            content.innerHTML = `
                 <div class="alerts-empty-state">
-                    <h3>Unable to Load Alerts</h3>
-
-                    <p>
-                        Firebase ya Flask connection
-                        check karo aur Refresh dabao.
-                    </p>
+                    Unable to refresh Firebase data.
+                    Please try again shortly.
                 </div>
             `;
         }
 
     } finally {
+        alertsLoading = false;
 
         if (refreshBtn) {
             refreshBtn.disabled = false;
@@ -554,87 +551,48 @@ async function alertsLoadData() {
 }
 
 
-// ==========================================
-// INITIALIZATION
-// ==========================================
+// ======================================================
+// INITIALIZE PAGE
+// ======================================================
 
-document.addEventListener(
-    "DOMContentLoaded",
-    () => {
+document.addEventListener("DOMContentLoaded", () => {
 
-        // Category filters
+    document.querySelectorAll(
+        ".alerts-filter-btn"
+    ).forEach(button => {
+        button.addEventListener("click", () => {
+            activeAlertFilter = button.dataset.filter || "all";
 
-        document.querySelectorAll(
-            ".alerts-filter-btn"
-        ).forEach(button => {
+            document.querySelectorAll(
+                ".alerts-filter-btn"
+            ).forEach(item => {
+                item.classList.remove("active");
+            });
 
-            button.addEventListener(
-                "click",
-                () => {
-
-                    activeAlertFilter =
-                        button.dataset.filter || "all";
-
-                    document.querySelectorAll(
-                        ".alerts-filter-btn"
-                    ).forEach(item => {
-                        item.classList.remove("active");
-                    });
-
-                    button.classList.add("active");
-
-                    alertsRenderTimeline();
-                }
-            );
+            button.classList.add("active");
+            alertsRenderTimeline();
         });
+    });
 
-        // Time range
+    const rangeSelector = alertsEl("alertsTimeRange");
 
-        const rangeSelector = alertsEl(
-            "alertsTimeRange"
-        );
+    if (rangeSelector) {
+        activeTimeRange = rangeSelector.value || "7d";
 
-        if (rangeSelector) {
-
-            activeTimeRange =
-                rangeSelector.value || "7d";
-
-            rangeSelector.addEventListener(
-                "change",
-                () => {
-
-                    activeTimeRange =
-                        rangeSelector.value;
-
-                    alertsUpdateSummary();
-
-                    alertsRenderTimeline();
-                }
-            );
-        }
-
-        // Refresh button
-
-        const refreshBtn = alertsEl(
-            "alertsRefreshBtn"
-        );
-
-        if (refreshBtn) {
-            refreshBtn.addEventListener(
-                "click",
-                alertsLoadData
-            );
-        }
-
-        // First load
-
-        alertsLoadData();
-
-        // Automatic refresh every 30 seconds
-
-        setInterval(
-            alertsLoadData,
-            30000
-        );
+        rangeSelector.addEventListener("change", () => {
+            activeTimeRange = rangeSelector.value;
+            alertsUpdateSummary();
+            alertsRenderTimeline();
+        });
     }
-);
+
+    const refreshBtn = alertsEl("alertsRefreshBtn");
+
+    if (refreshBtn) {
+        refreshBtn.addEventListener("click", alertsLoadData);
+    }
+
+    alertsLoadData();
+
+    setInterval(alertsLoadData, 30000);
+});

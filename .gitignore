@@ -1,32 +1,18 @@
-# Firebase private credentials
-serviceAccountKey.json
-*.pem
-*.key
+node_modules/
 .env
 .env.*
-
-# Python cache
-__pycache__/
-*.py[cod]
-.pytest_cache/
-
-# Virtual environment
-venv/
-.venv/
-env/
-
-# Editor files
-.vscode/
-.idea/
-
-# OS files
+!.env.example
+.next/
+dist/
+build/
+.vercel/
 .DS_Store
-Thumbs.db
+*.log
 
-# Backups
-*_backup.py
-*_backup.js
-*_before_refresh.js
-
-app_before_github.py
-generate_github_docs.py
+serviceAccountKey.json
+.env
+.vercel/
+__pycache__/
+venv/
+*_backup.*
+*_before_*
